@@ -132,3 +132,361 @@ $comm(H,1)=H$
 
 
 ## NOVA
+### IVC Proof
+#### Relaxed R1CS
+The committed relaxed $R 1 C S$ structure consists of sparse matrices $A, B, C \in \mathbb{F}^{m \times m}$ with at most $n=\Omega(m)$ non-zero entries in each matrix. A committed relaxed $R 1 C S$ instance is a tuple ${\color{blue}(\bar{E}, u, \bar{W}, \mathrm{x})}$, where $\bar{E}$ and $\bar{W}$ are commitments, $u \in \mathbb{F}$, and $\mathrm{x} \in \mathbb{F}^{\ell}$ are public inputs and outputs. 
+
+An instance $(\bar{E}, u, \bar{W}, \mathrm{x})$ is <font color=red>satisfied by a witness</font> $\left(E, r_E, W, r_W\right) \in\left(\mathbb{F}^m, \mathbb{F}, \mathbb{F}^{m-\ell-1}, \mathbb{F}\right)$ if $\bar{E}=$ $\operatorname{Com}\left(\mathrm{pp}_E, E, r_E\right), \bar{W}=\operatorname{Com}\left(\mathrm{pp}_W, W, r_W\right)$, and ${\color{blue}(A \cdot Z) \circ(B \cdot Z)=u \cdot(C \cdot Z)+E}$, where $Z=(W, \mathrm{x}, u)$.
+
+The verifier $\mathcal{V}$ takes two committed relaxed R1CS instances $\left(\bar{E}_1, u_1, \bar{W}_1, \mathrm{x}_1\right)$ and $\left(\bar{E}_2, u_2, \bar{W}_2, \mathrm{x}_2\right)$. The prover $\mathcal{P}$, in addition to the two instances, takes witnesses to both instances, $\left(E_1, r_{E_1}, W_1, r_{W_1}\right)$ and $\left(E_2, r_{E_2}, W_2, r_{W_2}\right)$. Let $Z_1=\left(W_1, \mathrm{x}_1, u_1\right)$ and $Z_2=\left(W_2, \mathrm{x}_2, u_2\right)$. The prover and the verifier proceed as follows.
+1. $\mathcal{P}$ : Send $\bar{T}:=\operatorname{Com}\left(\mathrm{pp}_E, T, r_T\right)$, where $r_T \leftarrow_R \mathbb{F}$ and with cross term
+$$
+T=A Z_1 \circ B Z_2+A Z_2 \circ B Z_1-u_1 \cdot C Z_2-u_2 \cdot C Z_1 \text {. }
+$$
+2. $\mathcal{V}$ : Sample and send challenge $r \leftarrow_R \mathbb{F}$.
+3. $\mathcal{V}, \mathcal{P}$ : Output the folded instance $(\bar{E}, u, \bar{W}, \mathrm{x})$ where
+$$
+\begin{aligned}
+& \bar{E} \leftarrow \bar{E}_1+r \cdot \bar{T}+r^2 \cdot \bar{E}_2 \\
+& u \leftarrow u_1+r \cdot u_2 \\
+& \bar{W} \leftarrow \bar{W}_1+r \cdot \bar{W}_2 \\
+& \mathrm{x} \leftarrow \mathrm{x}_1+r \cdot \mathrm{x}_2
+\end{aligned}
+$$
+4. $\mathcal{P}$ : Output the folded witness $\left(E, r_E, W, r_W\right)$, where
+$$
+\begin{aligned}
+& E \leftarrow E_1+r \cdot T+r^2 \cdot E_2 \\
+& r_E \leftarrow r_{E_1}+r \cdot r_T+r^2 \cdot r_{E_2} \\
+& W \leftarrow W_1+r \cdot W_2 \\
+& r_W \leftarrow r_{W_1}+r \cdot r_{W_2}
+\end{aligned}
+$$
+
+<font color=red>The prover outputs folded instance+witness, the verifier only outputs witness.</font>
+
+#### Non-interactive scheme with Fiat-Shamir Transform
+$\mathcal{P}\left(\mathrm{pk},\left(u_1, w_1\right),\left(u_2, w_2\right)\right):$ runs $\mathrm{P}((\mathrm{pk} . \mathrm{pp}, \mathrm{pk} .(A, B, C))$ to retrieve its first message $\bar{T}$, and sends $\bar{T}$ to $\mathcal{V}$; computes $r \leftarrow \rho\left(\mathrm{vk}, u_1, u_2, \bar{T}\right)$, forwards this to $\mathrm{P}$, and outputs the resulting output.
+$\mathcal{V}\left(\mathrm{vk}, u_1, u_2, \bar{T}\right)$ : runs $\mathrm{V}$ with $\bar{T}$ as the message from the prover and with randomness $r \leftarrow \rho\left(\mathrm{vk}, u_1, u_2, \bar{T}\right)$, and outputs the resulting output.
+
+
+#### introducing $F'$
+$F'$ is augmented version of $F$.
+$F'$ takes input $u_i,U_i$, needs to fold them into $U_{i+1}$. $u_{i+1}$ attests to the correct execution  $i+1$ invocation of $F'$. $U_{i+1}$ attests to the correct execution of $1...i$ invocation of $F'$.
+
+Design choice: Why $F'$ output hash: because $F'$ mush output $U_{i+1}$ for the next invocation to fold, it should be contained in $u_{i+1}.x$ as public IO. But later in the next invocation, $F'$ must fold  $u_{i+1}.x$ into $U_{i+1}.x$, it is impossible to place $U_{i+1}$ into $U_{i+1}.x$. 
+
+#### $F'$ construction:
+$F^{\prime}\left(\mathrm{vk}, \mathrm{U}_i, \mathrm{u}_i,\left(i, z_0, z_i\right), \omega_i, \bar{T}\right) \rightarrow \mathrm{x}:$
+If $i$ is 0 , output hash $\left(\mathrm{vk}, 1, z_0, F\left(z_0, \omega_i\right), \mathrm{u}_{\perp}\right)$;
+otherwise,
+(1) check that $\mathrm{u}_i \cdot \mathrm{x}=\operatorname{hash}\left(\mathrm{vk}, i, z_0, z_i, \mathrm{U}_i\right)$, where $\mathrm{u}_i . \mathrm{x}$ is the public IO of $\mathrm{u}_i$,
+(2) check that $\left(\mathrm{u}_i \cdot \bar{E}, \mathrm{u}_i \cdot u\right)=\left(\mathrm{u}_{\perp} \cdot \bar{E}, 1\right)$,
+(3) compute $\mathrm{U}_{i+1} \leftarrow \mathrm{NIFS} . \mathrm{V}(\mathrm{vk}, \mathrm{U}, \mathrm{u}, \bar{T})$, and
+(4) output hash(vk, $\left.i+1, z_0, F\left(z_i, \omega_i\right), \mathrm{U}_{i+1}\right)$.
+
+We can represent $F'$ as an Relaxed R1CS scheme. 
+$\left(\mathrm{u}_{i+1}, \mathrm{w}_{i+1}\right) \leftarrow \operatorname{trace}\left(F^{\prime},\left(\mathrm{vk}, \mathrm{U}_i, \mathrm{u}_i,\left(i, z_0, z_i\right), \omega_i, \bar{T}\right)\right)$
+Here $\mathrm{u}_{i+1}$ is instance, $\mathrm{w}_{i+1}$ is witness.
+$u_{i+1},w_{i+1}$ is a satisfying instance-witness pair for invocation of $F'$.
+
+#### IVC scheme
+$\underline{\mathcal{P}\left(\mathrm{pk},\left(i, z_0, z_i\right), \omega_i, \Pi_i\right) \rightarrow \Pi_{i+1}}:$
+Parse $\Pi_i$ as $\left(\left(\mathrm{U}_i, \mathrm{~W}_i\right),\left(\mathrm{u}_i, \mathrm{w}_i\right)\right)$ and then
+(1) if $i$ is 0 , compute $\left(\mathrm{U}_{i+1}, \mathrm{~W}_{i+1}, \bar{T}\right) \leftarrow\left(\mathrm{u}_{\perp}, \mathrm{w}_{\perp}, \mathrm{u}_{\perp} . \bar{E}\right)$; otherwise, compute $\left(\mathrm{U}_{i+1}, \mathrm{~W}_{i+1}, \bar{T}\right) \leftarrow \operatorname{NIFS} . \mathrm{P}\left(\mathrm{pk},\left(\mathrm{U}_i, \mathrm{~W}_i\right),\left(\mathrm{u}_i, \mathrm{w}_i\right)\right)$,
+(2) compute $\left(\mathrm{u}_{i+1}, \mathrm{w}_{i+1}\right) \leftarrow \operatorname{trace}\left(F^{\prime},\left(\mathrm{vk}, \mathrm{U}_i, \mathrm{u}_i,\left(i, z_0, z_i\right), \omega_i, \bar{T}\right)\right)$, and
+(3) output $\Pi_{i+1} \leftarrow\left(\left(\mathrm{U}_{i+1}, \mathrm{~W}_{i+1}\right),\left(\mathrm{u}_{i+1}, \mathrm{w}_{i+1}\right)\right)$.
+$\underline{\mathcal{V}\left(\mathrm{vk},\left(i, z_0, z_i\right), \Pi_i\right) \rightarrow\{0,1\}:}$
+If $i$ is 0 , check that $z_i=z_0$; otherwise,
+(1) parse $\Pi_i$ as $\left(\left(\mathrm{U}_i, \mathrm{~W}_i\right),\left(\mathrm{u}_i, \mathrm{w}_i\right)\right)$,
+(2) check that $\mathrm{u}_i . \mathrm{x}=\operatorname{hash}\left(\mathrm{vk}, i, z_0, z_i, \mathrm{U}_i\right)$,
+(3) check that $\left(\mathrm{u}_i \cdot \bar{E}, \mathrm{u} . u\right)=\left(\mathrm{u}_{\perp} \cdot \bar{E}, 1\right)$, and
+(4) check that $W_i$ and $w_i$ are satisfying witnesses to $U_i$ and $u_i$ respectively.
+
+Here the prover first computes the folding result $U_{i+1},W_{i+1}$, they also compute $u_{i+1},w_{i+1}$ to attest the execution of this folding. so the final proof contains $U_{i+1},W_{i+1},u_{i+1},w_{i+1}$.
+
+#### Efficiency Analysis
+Lemma 4 (Efficiency). When instantiated with the Pedersen commitment scheme (Construction 6), we have that $\left|F^{\prime}\right|=|F|+o(2 \cdot \mathrm{G}+2 \cdot \mathrm{H}+\mathrm{R})$, where $|F|$ denotes the number of R1CS constraints to encode a function $F, \mathrm{G}$ is the number of constraints required to encode a group scalar multiplication, $\mathrm{H}$ is the number of constraints required to encode hash, and $\mathrm{R}$ is the number of constraints to encode the $R O \rho$.
+
+Proof. On input instances U and u, NIFS.V computes $\bar{E} \leftarrow U . \bar{E}+r \cdot \bar{T}+r^2 \cdot \mathrm{u} \cdot \bar{E}$ and $\bar{W} \leftarrow U . \bar{W}+r \cdot \mathrm{u} \cdot \bar{W}$. However, by construction, u. $\bar{E}=\mathrm{u}_{\perp} \cdot \bar{E}=\overline{0}$. So, NIFS.V computes two group scalar multiplications, as it does not need to compute $r^2 \cdot \mathrm{u} . \bar{E}$. NIFS.V additionally invokes the $\mathrm{RO}$ once to obtain a random scalar. Finally, $F^{\prime}$ makes two additional calls to hash (details are in the description of $F^{\prime}$ ).
+
+<font color=red>Here analyzes the number of contraints used in encoding F'. The conclusion is that other than F, the extra constraint number is not big.</font>
+
+#### zkSNARK of IVC Proof
+$\mathcal{P}\left(\mathrm{pk},\left(i, z_0, z_i\right), \Pi\right) \rightarrow \pi:$
+If $i$ is 0 , output $\perp$;
+otherwise,
+(1) parse $\Pi$ as $((\mathrm{U}, \mathrm{W}),(\mathrm{u}, \mathrm{w}))$
+(2) compute $\left(\mathrm{U}^{\prime}, \mathrm{W}^{\prime}, \bar{T}\right) \leftarrow$ NIFS.P $\left(\mathrm{pk}_{\text {NIFS }},(\mathrm{U}, \mathrm{W}),(\mathrm{u}, \mathrm{w})\right)$
+(3) compute $\pi_{\mathrm{U}^{\prime}} \leftarrow$ zkSNARK.P( $\left.\mathrm{pk}_{\mathrm{zkSNARK}}, \mathrm{U}^{\prime}, \mathrm{W}^{\prime}\right)$
+(4) output (U, u, $\left.\bar{T}, \pi_{\mathrm{U}^{\prime}}\right)$.
+$\underline{\mathcal{V}\left(\mathrm{vk},\left(i, z_0, z_i\right), \pi\right) \rightarrow\{0,1\}:}$
+If $i$ is 0 , check that $z_0=z_i$;
+otherwise,
+(1) parse $\pi$ as (U, u, $\left.\bar{T}, \pi_{\mathrm{U}^{\prime}}\right)$,
+(2) check that u.x $=$ hash $\left(\operatorname{vk}_{\text {NIFS }}, i, z_0, z_i, \mathrm{U}\right)$,
+(3) check that (u. $\bar{E}$, u.u $)=\left(\mathrm{u}_{\perp} \cdot \bar{E}, 1\right)$,
+(4) compute $\mathrm{U}^{\prime} \leftarrow$ NIFS.V $\left(\mathrm{vk}_{\mathrm{NIFS}}, \mathrm{U}, \mathrm{u}, \bar{T}\right)$, and
+(5) check that zkSNARK.V $\left(v_{z k S N A R K}, U^{\prime}, \pi_{U^{\prime}}\right)=1$.
+
+Here $\pi_{U'}$ proves that prover knows $W'$ as a valid witness of $U'$, or that $\operatorname{IVC} . V\left(\mathrm{vk}, i, z_0, z_i, \Pi_i\right)=1$(because $U'$ is obtained by folding $U$ and $V$).
+
+
+### A zkSNARK for Committed Relaxed R1CS
+#### Idealized Relaxed R1CS 
+Consider a finite field $\mathbb{F}$. Let the public parameters consist of size bounds $m, n, \ell \in \mathbb{N}$ where $m>\ell$. The idealized relaxed R1CS structure consists of sparse matrices $A, B, C \in \mathbb{F}^{m \times m}$ with at most $n=\Omega(m)$ non-zero entries in each matrix. A idealized relaxed R1CS instance consists of an error vector $E \in \mathbb{F}^m$, a scalar $u \in \mathbb{F}$, witness vector $W \in \mathbb{F}^m$, and public inputs and outputs $\mathrm{x} \in \mathbb{F}^{\ell}$. An instance $(E, u, W, \mathrm{x})$ is satisfying if $(A \cdot Z) \circ(B \cdot Z)=u \cdot(C \cdot Z)+E$, where $Z=(W, \mathrm{x}, u)$.
+
+
+<font color=red>Here the major difference I think is that no commitments, all raw matrixes.</font>
+
+
+Let $s=\log m$. We interpret the matrices $A, B, C$ as functions with signature $\{0,1\}^{\log m} \times\{0,1\}^{\log m} \rightarrow \mathbb{F}$ in a natural manner. In particular, an input in $\{0,1\}^{\log m} \times\{0,1\}^{\log m}$ is interpreted as the binary representation of an index $(i, j) \in[m] \times[m]$, where $[m]:=\{1, \ldots, m\}$ and the function outputs $(i, j)$ th entry of the matrix.
+
+MLE of Z: $\widetilde{Z}\left(X_1, \ldots, X_s\right)=\left(1-X_1\right) \cdot \widetilde{W}\left(X_2, \ldots, X_s\right)+X_1 \cdot \widetilde{(\mathrm{x}, u)}\left(X_2, \ldots, X_s\right)$
+
+Check the equality holds:
+$$
+0 \stackrel{?}{=} \sum_{x \in\{0,1\}^s} \tilde{\mathrm{eq}}(\tau, x) \cdot F(x),
+$$
+where
+$$
+\begin{aligned}
+F(x)= & \left(\sum_{y \in\{0,1\}^s} \widetilde{A}(x, y) \cdot \widetilde{Z}(y)\right) \cdot\left(\sum_{y \in\{0,1\}^s} \widetilde{B}(x, y) \cdot \widetilde{Z}(y)\right)- \\
+& \left(u \cdot \sum_{y \in\{0,1\}^s} \widetilde{C}(x, y) \cdot \widetilde{Z}(y)+\widetilde{E}(x)\right),
+\end{aligned}
+$$
+
+
+
+
+If $\varphi$ is satisfiable, then Equation (2) holds with probability 1 over the choice of $\tau$, and if not, then Equation (2) holds with probability at most $O(\log m /|\mathbb{F}|)$ over the random choice of $\tau$.
+
+Some reasoning here: if for all x , F(x)=0, which means $\varphi$ is satisfiable, the equality certainly holds. If not satisfied, then with high probability, this equality doesn't hold. 
+Therefore, we can attest the satisfiability by random $\tau$.
+
+To compute the right-hand side in Equation (2), the prover and the verifier apply the sum-check protocol to the following polynomial: ${\color{red}g(x):=\widetilde{\mathrm{eq}}(\tau, x) \cdot F(x)}$ 
+
+For verifier, this reduces to evaluating $g$ at a random input $r_x$. 
+
+Note that the verifier can locally evaluate $\widetilde{\text { eq }}\left(\tau, r_x\right)$ in $O(\log m)$ field operations.
+
+ With $\tilde{\text { eq }}\left(\tau, r_x\right)$ in hand, $g\left(r_x\right)$ can be computed in $O(1)$ time given the four quantities: $\sum_{y \in\{0,1\}^s} \widetilde{A}\left(r_x, y\right) \cdot \widetilde{Z}(y)$, $\sum_{y \in\{0,1\}^s} \widetilde{B}\left(r_x, y\right) \cdot \widetilde{Z}(y), \sum_{y \in\{0,1\}^s} \widetilde{C}\left(r_x, y\right) \cdot \widetilde{Z}(y)$, and $\widetilde{E}\left(r_x\right)$.
+
+ The first three can be checked by applying sum-check protocol in parallel. This suffices for the verifier to verify at $\widetilde{A}\left(r_x, r_y\right), \widetilde{B}\left(r_x, r_y\right), \widetilde{C}\left(r_x, r_y\right), \text { and } \widetilde{Z}\left(r_y\right)$ These are solvable by $\color{red}\text{oracle acess to} (\widetilde{A}, \widetilde{B}, \widetilde{C}).$
+
+
+ In summary, we have the following polynomial IOP.
+1. $\mathcal{V} \rightarrow \mathcal{P}: \tau \in_R \mathbb{F}^s$
+2. $\mathcal{V} \leftrightarrow \mathcal{P}$ : run the sum-check protocol to reduce the check in Equation (2) to checking if the following hold, where $r_x, r_y$ are vectors in $\mathbb{F}^s$ chosen at random by the verifier over the course of the sum-check protocol:
+- $\widetilde{A}\left(r_x, r_y\right) \stackrel{?}{=} v_A, \widetilde{B}\left(r_x, r_y\right) \stackrel{?}{=} v_B$, and $\widetilde{C}\left(r_x, r_y\right) \stackrel{?}{=} v_C$;
+- $\widetilde{E}\left(r_x\right) \stackrel{?}{=} v_E$; and
+$\widetilde{Z}\left(r_y\right) \stackrel{?}{=} v_Z$.
+3. $\mathcal{V}$ :
+- check if $\widetilde{A}\left(r_x, r_y\right) \stackrel{?}{=} v_A, \widetilde{B}\left(r_x, r_y\right) \stackrel{?}{=} v_B$, and $\widetilde{C}\left(r_x, r_y\right) \stackrel{?}{=} v_C$, with a query to $\widetilde{A}, \widetilde{B}, \widetilde{C}$ at $\left(r_x, r_y\right)$;
+- check if $\widetilde{E}\left(r_x\right) \stackrel{?}{=} v_E$ with an oracle query to $\widetilde{E}$; and
+- check if $\widetilde{Z}\left(r_y\right) \stackrel{?}{=} v_Z$ by checking if: $v_Z=\left(1-r_y[1]\right) \cdot v_W+r_y[1]$. $\widetilde{(\mathrm{x}, u)}\left(r_y[2]\right)$, where $r_y[2.. ]$ refers to a slice of $r_y$ without the first element of $r_y$, and $v_W \leftarrow \widetilde{W}\left(r_y[2]\right)$ via an oracle query (see Equation (1)).
+
+#### Compile Poly IOP to zkSNARK
+compilation is based on PCS:
+Interpreting commitments to vectors as polynomial commitments. 
+
+It is well known that commitments to $m$-sized vectors over $\mathbb{F}$ are commitments to $\log m$ variate multilinear polynomials represented with evaluations over $\{0,1\}^m$. Furthermore, there is a polynomial commitment scheme for $\log m$-variate multilinear polynomials if there exists an argument protocol to prove an inner product computation between a committed vector and an $m$-sized public vector $\left(\left(r_1, 1-r_1\right) \otimes \ldots \otimes\left(r_{\log m}, 1-r_{\log m}\right)\right)$, where $r \in \mathbb{F}^{\log m}$ is an evaluation point. 
+
+There are two candidate constructions in the literature. Note that the primary difference between two schemes is <font color=red> verifier's time</font>.
+1. $P C_{B P}$. If the commitment scheme is Pedersen, Bulletproofs provides a suitable inner product argument protocol. Bulletproof PCS assuming DLOG For a $\log m$-variate multilinear polynomial, committing takes $O_\lambda(m)$ time to produce an $O_\lambda(1)$-sized commitment; the prover incurs $O_\lambda(m)$ costs to produce an evaluation proof of size $O_\lambda(\log m)$ that can be verified in $O_\lambda(m)$. 
+
+2. $\mathrm{PC}_{\text {Dory }}$. If vectors over $\mathbb{F}$ are committed with a two-tiered "matrix" commitment (see for example, $[19,34]$ ), which provides $O_\lambda(1)$-sized commitments to $m$-sized vectors under the SXDH assumption. Dory [34] provides the necessary inner product argument. The polynomial commitment assuming the hardness of SXDH. For a $\log m$-variate multilinear polynomial, committing takes $O_\lambda(m)$ time to produce an $O_\lambda(1)$-sized commitment; the prover incurs $O_\lambda(m)$ costs to produce an evaluation proof of size $O_\lambda(\log m)$ that can be verified in $O_\lambda(\log m)$.
+
+
+## Groth16
+### Vitalik Notes: QAP
+For a function:
+
+```python
+def qeval(x):
+    y = x**3
+    return x + y + 5
+```
+
+#### Flattening
+```python
+sym_1 = x * x
+y = sym_1 * x
+sym_2 = y + x
+~out = sym_2 + 5
+```
+
+#### Gates to R1CS
+solution to R1CS is vector $s$. 
+R1CS is a sequence of 3 vectors $(a,b,c)$, following the equation $(s\cdot a)\cdot (s\cdot b)-(s\cdot c)=0$.
+First, we'll provide the variable mapping that we'll use:
+```python
+'~one', 'x', '~out', 'sym_1', 'y', 'sym_2'
+s=[1,3,35,9,27,30]
+```
+
+Now, we'll give the (a,b,c) triple for the first gate:
+```python
+a = [0, 1, 0, 0, 0, 0]
+b = [0, 1, 0, 0, 0, 0]
+c = [0, 0, 0, 1, 0, 0]
+```
+This encodes that 
+```python
+sym_1 = x * x
+```
+
+
+The complete R1CS put together is:
+```python
+A
+[0, 1, 0, 0, 0, 0]
+[0, 0, 0, 1, 0, 0]
+[0, 1, 0, 0, 1, 0]
+[5, 0, 0, 0, 0, 1]
+
+B
+[0, 1, 0, 0, 0, 0]
+[0, 1, 0, 0, 0, 0]
+[1, 0, 0, 0, 0, 0]
+[1, 0, 0, 0, 0, 0]
+
+C
+[0, 0, 0, 1, 0, 0]
+[0, 0, 0, 0, 1, 0]
+[0, 0, 0, 0, 0, 1]
+[0, 0, 1, 0, 0, 0]
+```
+#### R1CS to QAP
+Now we have 4 groups of 3 vectors of length 6
+we want to go to 6 groups of 3 degree-3 polynomial.
+evaluate at each $x$ gets one of the constraints,
+evaluate at 1 gets first set of constraints
+```
+A polynomials
+[-5.0, 9.166, -5.0, 0.833]
+[8.0, -11.333, 5.0, -0.666]
+[0.0, 0.0, 0.0, 0.0]
+[-6.0, 9.5, -4.0, 0.5]
+[4.0, -7.0, 3.5, -0.5]
+[-1.0, 1.833, -1.0, 0.166]
+
+B polynomials
+[3.0, -5.166, 2.5, -0.333]
+[-2.0, 5.166, -2.5, 0.333]
+[0.0, 0.0, 0.0, 0.0]
+[0.0, 0.0, 0.0, 0.0]
+[0.0, 0.0, 0.0, 0.0]
+[0.0, 0.0, 0.0, 0.0]
+
+C polynomials
+[0.0, 0.0, 0.0, 0.0]
+[0.0, 0.0, 0.0, 0.0]
+[-1.0, 1.833, -1.0, 0.166]
+[4.0, -4.333, 1.5, -0.166]
+[-6.0, 9.5, -4.0, 0.5]
+[4.0, -7.0, 3.5, -0.5]
+```
+for the first polynomial,
+$f(1)=0, f(2)=0, f(3)=0, f(4)=5$, encodes the first column(first variable) of $A$
+
+evaluate all at $x=1$
+```
+A results at x=1
+0
+1
+0
+0
+0
+0
+
+B results at x=1
+0
+1
+0
+0
+0
+0
+
+C results at x=1
+0
+0
+0
+1
+0
+0
+```
+
+The first constraint vector for $A$ is $A_1(1),A_2(1)...A_6(1)$
+
+The x-th constraint vector for $A$ is $A_1(x),A_2(x)...A_6(x)$
+
+$(s\cdot a)\cdot (s\cdot b)-s\cdot c=0$ when it checks the first constraint:
+
+it is checking $(\sum_{i=1}^6 s_i A_i(1))\cdot (\sum_{i=1}^6 s_i B_i(1))-(\sum_{i=1}^6 s_i C_i(1))=0$
+
+So here we want to check that $(\sum_{i=1}^6 s_i A_i(x))\cdot (\sum_{i=1}^6 s_i B_i(x))-(\sum_{i=1}^6 s_i C_i(x))=0$ for $x=1,2,3,4$
+
+We change to check that $(\sum_{i=1}^6 s_i A_i(x))\cdot (\sum_{i=1}^6 s_i B_i(x))-(\sum_{i=1}^6 s_i C_i(x))$ can divide $(x-1)(x-2)(x-3)(x-4)$
+
+We can check this by prover providing the quotient polynomial.
+Here I think is that we just don't use PCS in groth16.
+
+## ZK Decision Tree
+Each internal node $v$ has attribute index $v.att$ from set $[d]$, threshold $v.thr$, and left right children $v.left, v.right$.
+Each leaf $u$ stores $u.class$.
+
+**Algorithm 1 Decision Tree Prediction**
+
+Input: Decision tree $\mathcal{T}$, data sample a
+
+Output: classification $y_{\mathrm{a}}$
+
+$v:=\mathcal{T}$.root
+
+while $v$ is not a leaf node do
+
+if $\mathbf{a}[v \cdot \mathrm{att}]<\mathrm{v}$.thr then
+
+$v:=v$.left
+
+else
+
+$v:=v$.right
+
+return v.class 
+
+### Authenticated decision tree
+1. naive approach: use Merkle tree, build merkle tree for all nodes, for each decision tree path, give a merkle tree path proof for each node in the path,
+complexity: $O(h logN)$ hashes. Need to prove the hashes in ZKP backend.
+
+2. we build ADT: 
+node hash: hash of left node hash, right node, threshold, attribute, left node ID, right node ID
+
+To validate the prediction of one data sample: the proof includes prediction path from root to leaf node that outputs the prediction result. Also the hashes of siblings of the nodes along prediction path.
+
+Now the verification of ADT only costs the verifier $O(h)$ hashes to rebuild the root.
+#### Construction of ADT
+- $\operatorname{com}_{\mathrm{ADT}} \leftarrow \mathrm{ADT}$.Commit $(\mathcal{T}, \mathrm{pp}, r)$ : compute hashes from leaf nodes to the root of $\mathcal{T}$ with the random point $r$.
+- $\pi_{\mathrm{ADT}} \leftarrow$ ADT.P $\left(\mathcal{T}\right.$, Path, pp): given a path in $\mathcal{T}, \pi_{\mathrm{ADT}}$ contains all siblings of the nodes along the path Path and the randomness $r$.
+- $\{0,1\} \leftarrow$ ADT. $\mathcal{V}\left(\operatorname{com}_{\mathrm{ADT}}\right.$, Path, $\left.\pi_{\mathrm{ADT}}, \mathrm{pp}\right)$ : given Path and $\pi_{\mathrm{ADT}}$, recompute hashes along Path with $\pi_{\mathrm{ADT}}$ as the same progress in Figure 1 and compare the root hash with com $\mathrm{ADT}$. Output 1 if they are the same, otherwise output 0 .
+
+### Proving validity of prediction
+We don't want the verifier to directly invoke $ADT.\mathcal{V}$, prover instead uses ZKP to prove that 
+
+(1)there exists a valid prediction path that $ADT.\mathcal{V}$ would accept
+
+(2)the prediction is correctly executed.
+
+Difficulty: for data example $a$ we need to have access to $a[v.att]$, this is random memory access operation. Using RAM or circuit to represent this has high overhead.
+
+![](./fig/zkdt_fig2.png "Magic Gardens")
+
+extended  witness is for efficiency
+decompose into three parts:
+
+(1) 
+
+(2)
+
+(3)
