@@ -490,3 +490,129 @@ decompose into three parts:
 (2)
 
 (3)
+
+
+## ZeroSync
+Core observation: to become a full node you have to own 500GB historical blockchain data
+
+Target: compress this with SNARK, validating entire blockchain in a proof system
+
+The potential of applying validity proofs outside of blockchain consensus rules: it doesn't require everyone to agree, up to each user whether they want to sync using chain state proof or conventional download
+
+Current prototype verifiers most consensus rules except TX witness data. Main obstacle, proving SHA256 hashes and ECDSA signatures.
+
+### ZeroSync Proof system
+why choose STARK: best prover performance
+
+Represent entire UTXO set: intractable. Use set commitment instead
+
+Utreexo: a dynamic accumulator for bitcoin state, allow us to verify inclusion and update the commitment.
+
+Implemented web verifier for bitcoin chain state: giza verifier compiled to web assembly
+
+Ported the giza verifier to Cairo to verify a proof in a proof.(recursion)
+
+### Types of chain state proof
+weakness of a proof: cannot verify longest chain rule,
+cannot verify data availability
+
+<font color=red>what is data availability?</font>
+
+The proof is aware of only a single chain, node has to result conflicting claims of peers.
+
+Public input for chain proof: current program hash, highest block hash, total work, current block height,
+
+To deal with blockchain retarget mechanism: include current target, previous 11 timestamps, current epoch start time.
+
+3 types of state proofs:
+
+1.header chain proof: attests to correct validation of all light client consensus rules
+
+2.assumevalid state proof, include verification of all consensus rules but TX script validation
+
+3.full state proof with TX script validation
+
+Block data is fed into the program using Cairo Hints.
+
+Same procedure used to create state proof: verify previous state proof, respective consensus rules applied to next set of blocks
+
+#### Header chain proofs
+when verifying only block headers and their consensus rules, we can include multiple headers in each iteration of recursive proving.
+
+Initial proving leverage powerful machines and large batches until proof is at the chain tip, from then onward, smaller batches can be proven to decrease latency.
+
+The header proof includes a crypto commitment to set of all blocks proven in current run, in the form of merkle tree.
+
+The merkle root is created by all blocks in the batch and previous proof's merkle root.
+
+<font color=red>how can the merkle tree get updated with such less data?</font>
+
+#### Full chain state proof
+assumevalid state proof: assume TX script to be valid.
+
+doesn't include SegWit logic, taproot update has not been implemented.
+
+### Applications
+Accelerate initial sync
+
+trustless light client: SPV has to trust servers providing them correct TX history.
+
+### zkCoin
+2017, Andrew Poelstra proposed scriptless scripts, off-chain smart contracts.
+two principles: 
+
+1.never write into the blockchain what can be communicated offchain.
+
+2.avoid validation on global layer that can be performed on client side. 
+
+Client side validation: TX data and token history is communicated off-chain, from sender to recipient.
+
+Fundamental problem: a token's history grows fast. 
+
+To transfer a coin, the sender extens the coin's history proof to prove the TX validity to its recipient.
+
+zkCoin: A coin is literally its proof of validity, sender gives a zkSNARK to the recipient.
+
+In contrast to zk-rollup/Mina, no data availability problem, no global proof aggregation is required, proofs are communicated off-chain.
+
+Reducing global state to constant size: sender proves to recipient that no double spending happened, by proving that their commitment has never occurred in chain before.
+
+#### Timechain accumulator
+on every on-chain commitment, sender commits to their next commitment key for next TX. To ensure each key is used only once, they must prove non-inclusion since the previous on-chain commitment.
+
+Once a month, all users sort all keys occcurred in the chain during that month, then compute a merkle tree. The resulting merkle paths are non-inclusion proofs for all other keys because a path can prove that a particular key is not at the position.
+
+zkCSV fully decoupled from bitcoin UTXO set.
+
+#### Limitations
+Transactions are interactive, which implies that the recipient has to be online.
+
+The sender needs sufficient computational resources to prove their account updates
+
+No global state, fundamental data availability problem for smart contracts
+
+## Digital Yuan
+What is it about, what are they working on?
+
+
+## Bitcoin core update 14.0
+https://bitcoincore.org/en/2017/03/08/release-0.14.0/#assumed-valid-blocks
+Core: Improved Initial Block Download (IBD) performance: a full node started first time can now validate all blocks till now much faster. 
+
+An assumed valid block is a block that individual users consider to be valid, including being part of a valid block chain. 
+
+If someone who starts a new full node knows about any valid blocks, they can then provide the highest-height blocks to Bitcoin Core and the software will skip verifying signatures in the blocks before the assumed valid block. 
+
+Verify signature-> IBD bottleneck, using assumed valid blocks can significantly speed up IBD. All blocks after the assumed valid block will still have their signatures checked normally.
+
+
+## Mina 
+Mina is similar to Bitcoin, apart from how it handles transactions, but also employs the account model used in Ethereum.
+
+One aspect of difference between Bitcoin and Ethereum, is the state of the Bitcoin blockchain contains UTXO, while Ethereum’s state is made up of account balances.
+
+Mina, on the other hand, uses a prover, an equivalent of a miner, to ensure each block commits to the state. 
+
+## SPV
+
+Simplified Payment Verification (SPV) nodes are lightweight clients that do not store the entire blockchain. They only download block headers and verify the proof of work for each block. SPV nodes rely on full nodes to provide them with the necessary information to validate transactions.
